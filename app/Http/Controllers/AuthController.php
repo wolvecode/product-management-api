@@ -26,19 +26,17 @@ class AuthController extends Controller
         ]);
 
         $email = $request->input('email');
+        $token = Cache::remember('user_token_' . $email, 60, function () use ($request) {
+            // Attempt authentication
+            if (Auth::attempt($request->only('email', 'password'))) {
+                // Authentication successful, generate token
+                $user = Auth::user();
+                return $user->createToken('authToken')->plainTextToken;
+            }
+            return null;
+        });
 
-        if (Cache::has('user_authenticated_' . $email)) {
-            $authenticated = Cache::get('user_authenticated_' . $email);
-        } else {
-            $authenticated = Auth::attempt($request->only('email', 'password'));
-            Cache::put('user_authenticated_' . $email, $authenticated, 60);
-        }
-
-        if ($authenticated) {
-            // Authentication successful, generate token
-            $user = Auth::user();
-            $token = $user->createToken('authToken')->plainTextToken;
-
+        if ($token) {
             return response()->json(['token' => $token], 200);
         } else {
             throw ValidationException::withMessages([
